@@ -30,7 +30,7 @@ export function useWebSocket() {
       try {
         const encodedToken = encodeURIComponent(token);
         ws.current = new WebSocket(
-          `ws://ec2-18-234-163-59.compute-1.amazonaws.com/ws/?token=${encodedToken}`
+          `ws://localhost:3002/?token=${encodedToken}`
         );
 
         ws.current.onopen = () => {
