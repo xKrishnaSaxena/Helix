@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import { getUserDatabase } from "../services/indexer";
 import pool from "../db/dbSetup";
-
 import fs from "fs";
 import path from "path";
 export const handleWebhook = async (req: Request, res: Response) => {
@@ -36,6 +35,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
         for (const eventType of eventTypes) {
           if (!userCategories.includes(eventType)) continue;
           try {
+            console.log("TRANSFORMING DATA");
             const transformed = await transformWebhookData(
               eventType,
               eventData,
@@ -43,6 +43,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
               userNFTAddresses,
               userAnyAddresses
             );
+            console.log("DATA TRANSFORMED");
 
             const tableExists = await client.query(
               `SELECT EXISTS (
@@ -51,6 +52,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
               )`,
               [transformed.table]
             );
+            console.log("TABLE EXISTS");
 
             if (!tableExists.rows[0].exists) {
               await client.query(`
@@ -62,10 +64,14 @@ export const handleWebhook = async (req: Request, res: Response) => {
               `);
             }
 
+            console.log("INSERTING DATA");
+
             await client.query(
               `INSERT INTO ${transformed.table} (data) VALUES ($1)`,
               [transformed.data]
             );
+
+            console.log("BROADCAST RESPONSE");
 
             await fetch("http://localhost:4000/broadcast", {
               method: "POST",
@@ -81,6 +87,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
                 },
               }),
             });
+            console.log("COMPLETED");
           } catch (error: any) {
             console.log(error.message);
             console.error(`Skipping ${eventType} processing:`, error.message);
@@ -128,15 +135,7 @@ const transformWebhookData = async (
 
   switch (type) {
     case "any":
-      const filename = `raw_${data.signature || Date.now()}.json`;
-
-      const rawDataDir = path.join(__dirname, "raw_data_any");
-      if (!fs.existsSync(rawDataDir)) fs.mkdirSync(rawDataDir);
-      fs.writeFileSync(
-        path.join(rawDataDir, filename),
-        JSON.stringify(data, null, 2)
-      );
-
+      console.log("ANY");
       return {
         table: "events_any",
         data: {
@@ -145,170 +144,102 @@ const transformWebhookData = async (
           type: data.type || "unknown",
           event_type: "events_any",
           transaction_types: type,
-          description: data.description || "Transaction executed",
         },
       };
-    case "nft_bids": {
-      const filename = `raw_${data.signature || Date.now()}.json`;
-
-      const rawDataDir = path.join(__dirname, "raw_data_nft_bids");
-      if (!fs.existsSync(rawDataDir)) fs.mkdirSync(rawDataDir);
-      fs.writeFileSync(
-        path.join(rawDataDir, filename),
-        JSON.stringify(data, null, 2)
-      );
-      if (!userNFTAddresses.includes(data.nftAddress)) {
-        throw new Error("Unauthorized NFT address in bid event");
+    case "nft_bids":
+      if (data.nftAddress !== userNFTAddresses.includes(data.nftAddress)) {
+        throw new Error("NFT address mismatch in bid event");
       }
-
-      const platformFee = data.fee / 1_000_000_000;
-      const netBidValue = data.amount - platformFee;
-
+      console.log("NFT BIDS");
+      console.log(data.bidder);
+      console.log(data.amount);
+      console.log(data.nftAddress);
       return {
         table: "events_nft_bids",
         data: {
           ...commonData,
-          transaction_hash: data.signature,
-          timestamp: new Date(data.timestamp * 1000),
-          marketplace: data.source || "unknown",
-
+          raw: data,
+          bidder: data.bidder,
+          amount: data.amount,
+          currency: data.currency || "SOL",
           nft_address: data.nftAddress,
-          token_id: data.tokenId,
-
-          bid_amount: {
-            gross: data.amount,
-            net: netBidValue,
-            currency: data.currency || "SOL",
-          },
-
-          status: data.instructions.some(
+          marketplace: data.platform || "unknown",
+          bid_type: data.bidType || "standard",
+          auction_house: data.auctionHouse || null,
+          bid_status: data.instructions.some(
             (i: any) => i.parsed?.type === "cancelBid"
           )
             ? "cancelled"
             : "active",
-
-          bid_type: data.bidType || "standard",
-          auction_house: data.auctionHouseAddress || null,
-
-          market_depth: {
-            current_highest_bid: data.currentHighestBid || 0,
-            bid_count: data.totalBids || 1,
-          },
         },
       };
-    }
 
     case "nft_pricing": {
-      const filename = `raw_${data.signature || Date.now()}.json`;
-
-      const rawDataDir = path.join(__dirname, "raw_data_nft_pricing");
-      if (!fs.existsSync(rawDataDir)) fs.mkdirSync(rawDataDir);
-      fs.writeFileSync(
-        path.join(rawDataDir, filename),
-        JSON.stringify(data, null, 2)
-      );
-      if (!userNFTAddresses.includes(data.nftAddress)) {
-        throw new Error("Unauthorized NFT address in price event");
+      if (data.nftAddress !== userNFTAddresses.includes(data.nftAddress)) {
+        throw new Error("NFT address mismatch in price event");
       }
-
-      const platformFee = data.fee / 1_000_000_000;
-      const netPrice = data.amount - platformFee;
 
       return {
         table: "events_nft_prices",
         data: {
           ...commonData,
-          transaction_hash: data.signature,
-          timestamp: new Date(data.timestamp * 1000),
-          marketplace: data.source || "unknown",
-
           nft_address: data.nftAddress,
-          token_id: data.tokenId,
-
-          sale_price: {
-            gross: data.amount,
-            net: netPrice,
-            currency: data.currency || "SOL",
-          },
-
+          sale_price: data.amount,
+          currency: data.currency || "SOL",
+          seller: data.seller,
+          buyer: data.buyer,
           sale_type: data.instructions.some(
             (i: any) => i.program === "mpl_auction_house"
           )
             ? "auction"
             : "direct",
-
-          fees: {
-            platform: platformFee,
-            royalty: data.royaltyFee || 0,
+          marketplace: data.platform || "unknown",
+          fee_structure: {
+            platform_fee: data.fee / 1_000_000_000,
           },
-
-          price_history: {
-            last_sale: data.amount,
-            average_7d: null,
-          },
+          raw: data,
         },
       };
     }
 
-    case "lending_markets": {
-      const tokenTransfer = data.tokenTransfers.find((t: any) =>
+    case "lending_markets":
+      console.log("LENDING MARKETS");
+      const relevantTransfer = data.tokenTransfers.find((t: any) =>
         userTokenAddresses.includes(t.mint)
       );
-      if (!tokenTransfer) {
-        throw new Error("No relevant token in lending transaction");
+      console.log(relevantTransfer);
+      if (!relevantTransfer) {
+        throw new Error("No monitored tokens in transaction");
       }
-
-      const loanInfo = data.accountData.find(
+      const loanData = data.accountData.find(
         (a: any) => a.data?.parsed?.type === "loan"
       )?.data?.parsed?.info;
-
-      const availableToBorrow = loanInfo?.availableAmount || 0;
-      const totalLiquidity = loanInfo?.totalDeposits || 0;
-      const utilizationRate =
-        totalLiquidity > 0
-          ? (totalLiquidity - availableToBorrow) / totalLiquidity
-          : 0;
-
+      console.log(loanData);
       return {
         table: "events_lending_offers",
         data: {
           ...commonData,
-          transaction_hash: data.signature,
-          timestamp: new Date(data.timestamp * 1000),
+          lender: loanData?.lender || data.feePayer,
+          token_address: relevantTransfer.mint,
+          amount: loanData?.amount || 0,
+          duration_days: loanData?.duration
+            ? Math.floor(loanData.duration / 86400)
+            : 0,
+          interest_rate: loanData?.apr || "variable",
           protocol: data.source,
-
-          token: {
-            address: tokenTransfer.mint,
-            decimals: tokenTransfer.rawTokenAmount?.decimals || 9,
-            total_liquidity: totalLiquidity,
-            available_to_borrow: availableToBorrow,
-          },
-
-          terms: {
-            loan_to_value_ratio: loanInfo?.ltv || 0.75,
-            collateral_ratio: loanInfo?.collateralRatio || 1.5,
-            max_duration_days: loanInfo?.maxDuration
-              ? Math.floor(loanInfo.maxDuration / 86400)
-              : 0,
-          },
-
-          rates: {
-            borrow_apr: loanInfo?.borrowApr || 0,
-            supply_apr: loanInfo?.supplyApr || 0,
-            utilization_rate: Number(utilizationRate.toFixed(4)),
-          },
-
-          health_factor: loanInfo?.healthFactor || 1,
-          liquidation_threshold: loanInfo?.liquidationThreshold || 0.85,
+          collateral_ratio: loanData?.collateralRatio || 1.5,
+          loan_type: loanData?.fixedRate ? "fixed" : "variable",
+          raw: data,
         },
       };
-    }
 
     case "token_pricing":
+      console.log("TOKEN PRICES");
       const monitoredTransfer = data.tokenTransfers.find((t: any) =>
         userTokenAddresses.includes(t.mint)
       );
-
+      console.log("MONITORED TRANSFER");
+      console.log(monitoredTransfer);
       if (!monitoredTransfer) {
         throw new Error("No monitored tokens in price transaction");
       }
@@ -316,28 +247,28 @@ const transformWebhookData = async (
       const swapData = data.tokenTransfers.find(
         (t: any) => !userTokenAddresses.includes(t.mint)
       );
-      const pairedTransfer = data.tokenTransfers.find(
-        (t: any) => t.mint !== monitoredTransfer.mint
-      );
-
-      const networkFee =
-        data.nativeTransfers?.reduce(
-          (sum: number, t: any) => sum + t.amount,
-          0
-        ) / 1_000_000_000;
-      if (!pairedTransfer) {
-        throw new Error("Paired token not found in swap");
-      }
-
+      console.log("SWAP DATA");
+      console.log(swapData);
       const pairedToken = data.tokenTransfers.find(
         (t: any) => !userTokenAddresses.includes(t.mint)
       );
-      const tokenPrice =
-        pairedTransfer.tokenAmount / monitoredTransfer.tokenAmount;
-      const priceUSD = tokenPrice;
+      console.log("PAIRED TOKEN");
+      console.log(pairedToken);
       if (!swapData || !pairedToken) {
         throw new Error("Relevant token transfer not found");
       }
+      console.log("SWAP DATA");
+      console.log(data.accountData);
+      const poolAccounts = data.accountData.filter(
+        (a: any) => a.account === data.instructions[0].accounts[3]
+      );
+      const calculatePrice = (
+        tokenAmount: number,
+        pairedAmount: number
+      ): number => {
+        if (!tokenAmount || !pairedAmount) return 0;
+        return Number((pairedAmount / tokenAmount).toFixed(6));
+      };
 
       const calculateLiquidity = (accountData: any[]): number => {
         const reserves = accountData
@@ -351,32 +282,23 @@ const transformWebhookData = async (
         table: "events_token_prices",
         data: {
           ...commonData,
-          transaction_hash: data.signature,
-          timestamp: new Date(data.timestamp * 1000),
-          platform: data.source,
-
-          base_token: {
-            address: monitoredTransfer.mint,
-            amount: monitoredTransfer.tokenAmount,
-          },
-          quote_token: {
-            address: pairedTransfer.mint,
-            amount: pairedTransfer.tokenAmount,
-          },
-
-          price: Number(tokenPrice.toFixed(6)),
-          price_usd: Number(priceUSD.toFixed(2)),
-
+          token_address: monitoredTransfer.mint,
+          price: calculatePrice(swapData.tokenAmount, pairedToken.tokenAmount),
+          liquidity: calculateLiquidity(poolAccounts),
           swap_direction:
-            monitoredTransfer.fromUserAccount === data.feePayer
-              ? "sell"
-              : "buy",
-          liquidity: calculateLiquidity(data.accountData),
-
-          fees: {
-            protocol: data.fee / 1_000_000_000,
-            network: networkFee,
+            swapData.fromUserAccount === data.feePayer ? "sell" : "buy",
+          platform: data.source,
+          pool_address: poolAccounts?.account,
+          fee_breakdown: {
+            protocol_fee: data.fee / 1_000_000_000,
+            network_fee:
+              data.nativeTransfers?.reduce(
+                (sum: number, t: any) => sum + t.amount,
+                0
+              ) / 1_000_000_000,
           },
+          timestamp: new Date(data.timestamp * 1000),
+          raw: data,
         },
       };
 

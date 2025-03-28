@@ -7,9 +7,13 @@ import {
   FiGlobe,
   FiAlertTriangle,
   FiLogOut,
+  FiLink,
+  FiTrash2,
 } from "react-icons/fi";
 import { useAuth } from "../contexts/authContext";
 import toast, { Toaster } from "react-hot-toast";
+import TransactionFeed from "./TransactionFeed";
+import { useWebhooks } from "../contexts/webhookContext";
 
 const INDEXING_CATEGORIES = [
   {
@@ -67,6 +71,7 @@ export default function DataIndexingSetup() {
   const [selectedCategories, setSelectedCategories] = useState<
     Record<string, any>
   >({});
+  const { webhooks } = useWebhooks();
   const [anySelected, setAnySelected] = useState(false);
   const [error, setError] = useState("");
   const [network, setNetwork] = useState<"mainnet" | "devnet">("mainnet");
@@ -126,7 +131,7 @@ export default function DataIndexingSetup() {
             ...config,
           })),
       };
-      console.log(payload);
+
       await toast.promise(
         Promise.all([
           fetch("http://localhost:3000/api/db/saveCredentials", {
@@ -169,6 +174,7 @@ export default function DataIndexingSetup() {
       setIsSubmitting(false);
     }
   };
+
   const TransactionTypeList = ({ types }: { types: string[] }) => (
     <div className="mt-4">
       <p className="text-sm text-gray-600 mb-2">Tracked transaction types:</p>
@@ -184,6 +190,78 @@ export default function DataIndexingSetup() {
       </div>
     </div>
   );
+  const WebhookList = () => {
+    const { webhooks, loading, error, deleteWebhook } = useWebhooks();
+
+    if (loading)
+      return <div className="p-4 text-gray-600">Loading webhooks...</div>;
+    if (error)
+      return (
+        <div className="text-red-600 p-4 bg-red-50 rounded-lg">{error}</div>
+      );
+
+    return (
+      <div className="space-y-4">
+        {webhooks.length > 0 && (
+          <div className="bg-yellow-100 p-4 rounded-lg text-yellow-800">
+            Using Helius free version you can only create 1 webhook.
+            <br /> Delete the existing webhook to create a new one.
+          </div>
+        )}
+
+        {webhooks.length === 0 ? (
+          <div className="bg-gray-50 p-4 rounded-lg text-gray-600 text-center">
+            No webhooks found. Your created webhooks will appear here.
+          </div>
+        ) : (
+          webhooks.map((webhook) => (
+            <div
+              key={webhook.webhookID}
+              className="bg-white p-6 rounded-xl shadow-sm"
+            >
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <FiLink className="text-blue-600" />
+                    <span className="font-medium">{webhook.webhookURL}</span>
+                  </div>
+                  <div className="flex gap-4 text-sm text-gray-600">
+                    <div>
+                      <span className="font-medium">Type:</span>{" "}
+                      {webhook.webhookType}
+                    </div>
+
+                    <div>
+                      <span className="font-medium">Accounts:</span>{" "}
+                      {webhook.accountAddresses?.length || 0}
+                    </div>
+                  </div>
+                  {webhook.transactionTypes && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {webhook.transactionTypes.map((type: string) => (
+                        <span
+                          key={type}
+                          className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full"
+                        >
+                          {type}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => deleteWebhook(webhook.webhookID)}
+                  className="p-2 hover:bg-red-50 rounded-lg text-red-600 hover:text-red-700"
+                >
+                  <FiTrash2 className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -198,6 +276,7 @@ export default function DataIndexingSetup() {
           >
             <FiLogOut />
           </button>
+
           <div className="text-center">
             <h1 className="text-3xl font-bold text-gray-900">
               Blockchain Data Indexing Setup
@@ -206,6 +285,20 @@ export default function DataIndexingSetup() {
               Configure real-time blockchain data synchronization
             </p>
           </div>
+        </div>
+        <div className="bg-white p-6 rounded-xl shadow-sm">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <FiLink className="text-green-600" />
+            Your Webhooks
+          </h2>
+          {webhooks.length > 0 && (
+            <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
+              <FiAlertTriangle className="text-yellow-500" />
+              <span>Webhook may take up to 2 minutes to take effect</span>
+            </div>
+          )}
+
+          <WebhookList />
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow-sm">
@@ -416,6 +509,7 @@ export default function DataIndexingSetup() {
           Start Data Indexing
         </button>
       </div>
+      <TransactionFeed />
     </div>
   );
 }

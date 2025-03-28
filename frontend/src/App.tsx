@@ -3,6 +3,8 @@ import AuthPage from "./pages/AuthForm";
 import { AuthProvider, useAuth } from "./contexts/authContext";
 import IndexingPreferencesForm from "./pages/IndexingPreferences";
 import { JSX } from "react";
+import { WebhookProvider } from "./contexts/webhookContext";
+
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -20,17 +22,20 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <IndexingPreferencesForm />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/auth" element={<AuthPage />} />
-        </Routes>
+        <WebhookProvider>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <IndexingPreferencesForm />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route path="/auth" element={<AuthPage />} />
+          </Routes>
+        </WebhookProvider>
       </AuthProvider>
     </BrowserRouter>
   );

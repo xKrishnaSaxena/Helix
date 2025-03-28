@@ -11,9 +11,6 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@metaplex-foundation/js": "^0.20.1",
-    "@prisma/client": "^6.5.0",
-    "@solana/web3.js": "^1.98.0",
     "axios": "^1.8.4",
     "bcrypt": "^5.1.1",
     "bs58": "^6.0.0",
@@ -24,7 +21,6 @@
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.14.1",
-    "prisma": "^6.5.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.2"
   },

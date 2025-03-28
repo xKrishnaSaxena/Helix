@@ -2,7 +2,8 @@ import { Request, Response } from "express";
 import pool from "../db/dbSetup";
 import Joi from "joi";
 import { setupHeliusWebhooks } from "../services/helius";
-
+import sanitizedConfig from "../utils/config";
+const HELIUS_API_KEY = sanitizedConfig.HELIUS_API_KEY;
 const preferenceSchema = Joi.object({
   category: Joi.string()
     .valid("nft_bids", "nft_pricing", "lending_markets", "token_pricing", "any")
@@ -26,6 +27,7 @@ export const setIndexingPreferences = async (req: Request, res: Response) => {
   try {
     const { error } = Joi.array().items(preferenceSchema).validate(categories);
     if (error) {
+      console.log(error);
       res.status(400).json({ error: error.message });
       return;
     }
@@ -35,25 +37,28 @@ export const setIndexingPreferences = async (req: Request, res: Response) => {
       userId,
     ]);
 
-    const addresses = categories.flatMap((category: any) => {
-      const {
-        nftAddresses = [],
-        tokenAddresses = [],
-        anyAddresses = [],
-      } = category.config;
-      return [...nftAddresses, ...tokenAddresses, ...anyAddresses];
-    });
+    const categoriesConfigs = categories.map((category: any) => ({
+      nftAddresses: category.config.nftAddresses || [],
+      tokenAddresses: category.config.tokenAddresses || [],
+      anyAddresses: category.config.anyAddresses || [],
+    }));
+
     const categoriesArray = categories.map(
       (category: any) => category.category
     );
     const transactionTypes = categories.flatMap((c: any) => c.transactionTypes);
-    const mergedConfig = { addresses };
 
     await pool.query(
       `INSERT INTO indexing_preferences 
        (user_id, config, transaction_types,network,categories) 
        VALUES ($1, $2, $3,$4,$5)`,
-      [userId, mergedConfig, transactionTypes, network, categoriesArray]
+      [
+        userId,
+        JSON.stringify(categoriesConfigs),
+        transactionTypes,
+        network,
+        categoriesArray,
+      ]
     );
 
     await pool.query("COMMIT");
@@ -61,6 +66,45 @@ export const setIndexingPreferences = async (req: Request, res: Response) => {
     await setupHeliusWebhooks(userId, network);
     res.json({ success: true });
   } catch (error: any) {
+    console.log(error);
+    res.status(400).json({ error: error.message });
+  }
+};
+export const getAllWebhooks = async (req: Request, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  try {
+    const response = await fetch(
+      `https://api.helius.xyz/v0/webhooks?api-key=${HELIUS_API_KEY}`
+    );
+    const data = await response.json();
+    res.status(200).json(data);
+  } catch (error: any) {
+    console.log(error);
+    res.status(400).json({ error: error.message });
+  }
+};
+export const deleteWebhook = async (req: Request, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  try {
+    const response = await fetch(
+      `https://api.helius.xyz/v0/webhooks/${req.body.id}?api-key=${HELIUS_API_KEY}`,
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    res.status(200).json({ success: true });
+  } catch (error: any) {
+    console.log(error);
     res.status(400).json({ error: error.message });
   }
 };

@@ -1,10 +1,10 @@
 {
-  "name": "webhook",
+  "name": "websocket",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "dev": "tsc -b && node dist/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "tsc -b && node dist/index.js"
   },
   "keywords": [],
   "author": "",
@@ -12,20 +12,15 @@
   "description": "",
   "dependencies": {
     "@types/cors": "^2.8.17",
+    "@types/dotenv": "^6.1.1",
+    "@types/express": "^5.0.1",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/ws": "^8.18.0",
-    "axios": "^1.8.4",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "http": "^0.0.1-security",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.14.1",
-    "typescript": "^5.8.2",
     "ws": "^8.18.1"
-  },
-  "devDependencies": {
-    "@types/express": "^5.0.1",
-    "@types/pg": "^8.11.11"
   }
 }
