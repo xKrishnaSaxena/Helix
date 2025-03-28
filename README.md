@@ -22,13 +22,24 @@ https://solscan.io/token/KMNo3nJsBXfcpJTVhZcXLW7RmTwTt4GVFE7suUBo9sS
 ### Helius Dashboard:
 https://dashboard.helius.dev/
 
+
+## Architecture
+
+```mermaid
+graph LR
+  A[Helius Webhook] --> B[Webhook Server]
+  B --> C[Postgres DB]
+  B --> D[WebSocket Server]
+  D --> E[Frontend UI]
+```
+
 ## Features
 
 - **Postgres Database Integration**: Users can sign up and provide their Postgres database credentials.
 - **Customizable Data Indexing**: Users can specify the type of data they want to index on the Solana blockchain.
 - **Automated Blockchain Data Retrieval**: Uses Helius webhooks to facilitate real-time data indexing.
 - **User-Friendly Interface**: A simple and intuitive UI for selecting indexing options.
-- **Scalable and Secure**: Secure authentication and credential management with a scalable backend.
+- **Scalable and Secure**: Secure authentication and credential management using AES-256 with a scalable backend.
 
 ## Setup Instructions
 
