@@ -67,20 +67,23 @@ export const handleWebhook = async (req: Request, res: Response) => {
               [transformed.data]
             );
 
-            await fetch("http://localhost:4000/broadcast", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                userId,
-                message: {
-                  type: "TRANSACTION",
-                  data: transformed.data,
-                  category: eventType,
+            await fetch(
+              "http://ec2-18-234-163-59.compute-1.amazonaws.com/broadcast",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
                 },
-              }),
-            });
+                body: JSON.stringify({
+                  userId,
+                  message: {
+                    type: "TRANSACTION",
+                    data: transformed.data,
+                    category: eventType,
+                  },
+                }),
+              }
+            );
           } catch (error: any) {
             console.log(error.message);
             console.error(`Skipping ${eventType} processing:`, error.message);
