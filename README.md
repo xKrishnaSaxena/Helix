@@ -4,6 +4,24 @@
 
 The Blockchain Indexing Platform on Helius enables developers to easily integrate and index blockchain data into a Postgres database. It eliminates the complexity of managing RPC nodes, Geyser, Validators, or webhook infrastructure by leveraging Helius webhooks for seamless data synchronization.
 
+## Videos for Setup and Demos
+
+### Setup
+https://github.com/user-attachments/assets/d90b11cb-f514-44c4-aa89-b777f4e1d2dc
+
+### Demo ( Token Prices and Lending Markets )
+https://github.com/user-attachments/assets/d4a26c91-8367-4ebb-9d22-5f02cb55c77d
+
+### Demo ( ANY )
+https://github.com/user-attachments/assets/fb773977-11d5-4664-9ae8-1d1283a15a51
+
+### Tokens used for Demo:
+https://solscan.io/token/TNSRxcUxoT9xBG3de7PiJyTDYu7kskLqcpddxnEJAS6 \
+https://solscan.io/token/KMNo3nJsBXfcpJTVhZcXLW7RmTwTt4GVFE7suUBo9sS
+
+### Helius Dashboard:
+https://dashboard.helius.dev/
+
 ## Features
 
 - **Postgres Database Integration**: Users can sign up and provide their Postgres database credentials.
